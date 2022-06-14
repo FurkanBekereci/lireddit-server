@@ -1,0 +1,16 @@
+{
+  "type": "postgres",
+  "database": "lireddit2",
+  "username": "postgres",
+  "password": "12345",
+  "logging": true,
+  "synchronize": true,
+  "entities": ["src/entities/**/*.ts"],
+  "migrations": ["src/migrations/**/*.ts"],
+  "subscribers": ["src/subscribers/**/*.ts"],
+  "cli": {
+    "entitiesDir": "src/entities",
+    "mirationsDir": "src/migrations",
+    "subscribersDir": "src/subscribers"
+  }
+}
