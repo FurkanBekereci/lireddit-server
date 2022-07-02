@@ -19,6 +19,8 @@ import { Post } from './entities/Post';
 import { User } from './entities/User';
 import { Updoot } from './entities/Updoot';
 import path from 'path';
+import { userLoader } from './utils/userLoader';
+import { updootLoader } from './utils/updootLoader';
 
 const main = async () => {
   // sendEmail('bob@bob.com', 'hello there!');
@@ -81,7 +83,13 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ req, res, redis }),
+    context: ({ req, res }): MyContext => ({
+      req,
+      res,
+      redis,
+      userLoader: userLoader(),
+      updootLoader: updootLoader(),
+    }),
   });
 
   await apolloServer.start();

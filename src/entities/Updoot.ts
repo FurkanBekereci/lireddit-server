@@ -33,6 +33,8 @@ export class Updoot extends BaseEntity {
   postId!: number;
 
   @Field(() => Post)
-  @ManyToOne(() => Post, (post) => post.updoots) // For Typeorm
+  @ManyToOne(() => Post, (post) => post.updoots, {
+    onDelete: 'CASCADE',
+  }) // For Typeorm
   post!: Post;
 }

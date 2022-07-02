@@ -19,6 +19,8 @@ const Post_1 = require("./entities/Post");
 const User_1 = require("./entities/User");
 const Updoot_1 = require("./entities/Updoot");
 const path_1 = __importDefault(require("path"));
+const userLoader_1 = require("./utils/userLoader");
+const updootLoader_1 = require("./utils/updootLoader");
 const main = async () => {
     const conn = await (0, typeorm_1.createConnection)({
         type: 'postgres',
@@ -53,7 +55,13 @@ const main = async () => {
             resolvers: [hello_1.HelloResolver, post_1.PostResolver, user_1.UserResolver],
             validate: false,
         }),
-        context: ({ req, res }) => ({ req, res, redis }),
+        context: ({ req, res }) => ({
+            req,
+            res,
+            redis,
+            userLoader: (0, userLoader_1.userLoader)(),
+            updootLoader: (0, updootLoader_1.updootLoader)(),
+        }),
     });
     await apolloServer.start();
     apolloServer.applyMiddleware({

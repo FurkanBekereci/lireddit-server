@@ -18,6 +18,7 @@ import { isAuth } from './../middleware/isAuth';
 import { getConnection, getManager } from 'typeorm';
 import { ObjectType } from 'type-graphql';
 import { Updoot } from './../entities/Updoot';
+import { userLoader } from './../utils/userLoader';
 
 @InputType()
 class PostInput {
@@ -46,20 +47,38 @@ export class PostResolver {
   }
 
   @FieldResolver(() => String)
-  voteStatus(@Root() root: Post, @Ctx() { req }: MyContext) {
+  user(@Root() root: Post, @Ctx() { userLoader }: MyContext) {
+    return userLoader.load(root.userId);
+  }
+
+  @FieldResolver(() => Int, { nullable: true })
+  async voteStatus(
+    @Root() root: Post,
+    @Ctx() { req, updootLoader }: MyContext
+  ) {
     const { userId } = req.session;
+    // console.log(
+    //   'updootLoader:',
+    //   updootLoader.load({ postId: root.id, userId: Number(userId) })
+    // );
+    // // console.log('req:', req.session);
     // console.log('userId:', userId);
-    // console.log('req:', req.session);
-    console.log('userId:', userId);
 
-    console.log(
-      'updoots:',
-      root.updoots.find((u) => u.userId == Number(userId))
-    );
+    // console.log(
+    //   'updoots:',
+    //   root.updoots.find((u) => u.userId == Number(userId))
+    // );
 
-    return userId
-      ? root.updoots?.find((updoot) => updoot.userId == userId)?.value
-      : null;
+    const updoot = await updootLoader.load({
+      postId: root.id,
+      userId: Number(userId),
+    });
+
+    // return userId
+    //   ? root.updoots?.find((updoot) => updoot.userId == userId)?.value
+    //   : null;
+
+    return updoot?.value;
   }
 
   @Mutation(() => Boolean)
@@ -202,8 +221,8 @@ export class PostResolver {
     const qb = await getConnection()
       .getRepository(Post)
       .createQueryBuilder('p')
-      .leftJoinAndSelect('p.user', 'u')
-      .leftJoinAndSelect('p.updoots', 'up')
+      // .leftJoinAndSelect('p.user', 'u')
+      // .leftJoinAndSelect('p.updoots', 'up')
       .orderBy('p."createdAt"', 'DESC')
       .limit(realLimitPlusOne);
 
@@ -257,10 +276,12 @@ export class PostResolver {
   }
 
   @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(isAuth)
   async updatePost(
-    @Arg('id') id: number,
-    @Arg('title', () => String, { nullable: true }) title: string
-    // @Ctx() { em }: MyContext
+    @Arg('id', () => Int) id: number,
+    @Arg('title', () => String, { nullable: true }) title: string,
+    @Arg('text', () => String, { nullable: true }) text: string,
+    @Ctx() { req }: MyContext
   ): Promise<Post | null> {
     //#region "For Mikro Orm"
     // const post = await em.findOne(Post, { id });
@@ -277,7 +298,7 @@ export class PostResolver {
     // return post;
     //#endregion
 
-    //TODO: control if the post is refreshed?
+    // //TODO: control if the post is refreshed?
     const post = await Post.findOneBy({ id });
 
     if (!post) {
@@ -285,15 +306,42 @@ export class PostResolver {
     }
 
     if (typeof title !== 'undefined') {
-      await Post.update({ id }, { title });
+      // const data = await Post.update(
+      //   { id, userId: req.session.userId },
+      //   { title, text }
+      // );
+      const data = await Post.createQueryBuilder()
+        .update()
+        .set({ title, text })
+        .where('id = :id and "userId" = :userId', {
+          id,
+          userId: req.session.userId,
+        })
+        .returning('*')
+        .execute();
+
+      console.log('returnin result = ', data.raw[0]);
+      return data.raw[0] as Post;
     }
 
-    return post;
+    // const post = await Post
+    //   .createQueryBuilder()
+    //   .update()
+    //   .set({title, text})
+    //   .where('id = :id and "userId" = :userId',{
+    //     id,
+    //     userId: req.session.userId
+    //   })
+    //   .returning('*')
+    //   .execute();
+
+    throw new Error('Update returned fail.');
   }
   @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
   async deletePost(
-    @Arg('id') id: number
-    // @Ctx() { em }: MyContext
+    @Arg('id', () => Int) id: number,
+    @Ctx() { req }: MyContext
   ): Promise<boolean> {
     //#region "For Mikro Orm"
     // try {
@@ -307,8 +355,30 @@ export class PostResolver {
     // }
     //#endregion
 
+    //#region "Not cascading"
+
+    // try {
+    //   const post = await Post.findOneBy({ id });
+    //   //This deleted by unknown reason without from client
+    //   if (!post) return false;
+
+    //   if (post.userId != req.session.userId) throw new Error('not authorized');
+
+    //   await Updoot.delete({ postId: id });
+    //   const result = await Post.delete({ id, userId: req.session.userId });
+
+    //   return !!result?.affected;
+    // } catch (error) {
+    //   console.log(error);
+
+    //   return false;
+    // }
+    //#endregion
+
+    //#region "Cascading way"
+    // Add cascade info to many to one relations in entity file.
     try {
-      const result = await Post.delete(id);
+      const result = await Post.delete({ id, userId: req.session.userId });
 
       return !!result?.affected;
     } catch (error) {
@@ -316,5 +386,7 @@ export class PostResolver {
 
       return false;
     }
+
+    //#endregion
   }
 }

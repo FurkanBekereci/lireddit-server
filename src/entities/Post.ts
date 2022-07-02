@@ -9,7 +9,6 @@ import {
   UpdateDateColumn,
   BaseEntity,
   ManyToOne,
-  JoinColumn,
   OneToMany,
 } from 'typeorm';
 import { Updoot } from './Updoot';
